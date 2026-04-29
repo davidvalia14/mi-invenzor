@@ -3,89 +3,74 @@ import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 
-# Configuración para que se vea bien en móviles y PCs
-st.set_page_config(page_title="Invenzor - Consultor de Inversión", layout="wide")
+# Configuración básica
+st.set_page_config(page_title="Invenzor Pro", layout="wide")
 
-# Estilo visual elegante
-st.markdown("""
-    <style>
-    .stApp { background-color: #f8fafc; }
-    .card { background-color: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0; }
-    h1 { color: #1e293b; font-weight: 800; }
-    </style>
-    """, unsafe_content_html=True)
-
+# Título principal
 st.title("🏛️ Invenzor")
-st.write("Análisis macroeconómico y sugerencia táctica de cartera en tiempo real.")
+st.markdown("### *Consultor Estratégico de Inversión*")
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("Configura tu Perfil")
-    perfil = st.selectbox("¿Cómo es tu perfil?", ["Conservador", "Moderado", "Arriesgado"], index=1)
-    capital = st.number_input("Capital de referencia (€)", value=10000, step=500)
-    st.divider()
-    st.write("Esta herramienta analiza tendencias de mercado y sugiere pesos ideales para 5 activos clave.")
+    st.header("Configuración")
+    perfil = st.selectbox("Tu Perfil de Riesgo", ["Conservador", "Moderado", "Arriesgado"], index=1)
+    capital = st.number_input("Capital total (€)", value=10000, step=1000)
 
 # --- LÓGICA DE DATOS ---
-@st.cache_data(ttl=3600) # Esto hace que la web sea rápida y no colapse
-def analizar_mercado():
-    # Activos: SPY (Acciones), AGG (Bonos), GLD (Oro), BTC (Bitcoin), BIL (Efectivo)
+@st.cache_data(ttl=3600)
+def obtener_datos():
+    # Bajamos datos de los activos principales
     tickers = {"Acciones": "SPY", "Bonos": "AGG", "Oro": "GLD", "Bitcoin": "BTC-USD", "Efectivo": "BIL"}
     data = yf.download(list(tickers.values()), period="1y")['Close']
     
-    # Análisis de tendencia (Precio vs Media 200 días)
-    resultados = {}
+    # Calculamos tendencia
+    tendencias = {}
     for nombre, ticker in tickers.items():
         actual = data[ticker].iloc[-1]
-        media = data[ticker].rolling(200).mean().iloc[-1]
-        resultados[nombre] = "Alcista" if actual > media else "Bajista"
-    
-    return resultados, tickers
+        media_200 = data[ticker].rolling(200).mean().iloc[-1]
+        tendencias[nombre] = "Alcista" if actual > media_200 else "Bajista"
+    return tendencias
 
-# --- MOSTRAR RESULTADOS ---
 try:
-    tendencias, tickers = analizar_mercado()
+    status = obtener_datos()
+
+    # --- LÓGICA DE PESOS ---
+    pesos = {"Acciones": 0.25, "Bonos": 0.25, "Oro": 0.20, "Bitcoin": 0.15, "Efectivo": 0.15}
     
-    # Distribución lógica basada en perfil y mercado
-    pesos = {"Acciones": 0.2, "Bonos": 0.2, "Oro": 0.2, "Bitcoin": 0.2, "Efectivo": 0.2}
+    if status["Acciones"] == "Bajista":
+        pesos["Acciones"] -= 0.10
+        pesos["Efectivo"] += 0.10
     
-    # Lógica inteligente simple
-    if tendencias["Acciones"] == "Bajista":
-        pesos["Acciones"] -= 0.1; pesos["Efectivo"] += 0.1
     if perfil == "Arriesgado":
-        pesos["Acciones"] += 0.15; pesos["Bonos"] -= 0.15
+        pesos["Acciones"] += 0.15
+        pesos["Bonos"] -= 0.15
     elif perfil == "Conservador":
-        pesos["Acciones"] -= 0.1; pesos["Bonos"] += 0.1
+        pesos["Acciones"] -= 0.15
+        pesos["Bonos"] += 0.15
 
-    col_izq, col_der = st.columns([1, 1])
+    # --- DISEÑO DE LA WEB ---
+    col1, col2 = st.columns([1, 1])
 
-    with col_izq:
-        st.subheader("📊 Distribución Recomendada")
-        fig = go.Figure(data=[go.Pie(labels=list(pesos.keys()), values=list(pesos.values()), hole=.4)])
-        fig.update_layout(showlegend=True, margin=dict(t=0, b=0, l=0, r=0))
+    with col1:
+        st.subheader("📊 Distribución Sugerida")
+        fig = go.Figure(data=[go.Pie(labels=list(pesos.keys()), values=list(pesos.values()), hole=.3)])
         st.plotly_chart(fig, use_container_width=True)
 
-    with col_der:
-        st.subheader("📝 Hoja de Ruta")
-        st.markdown(f"""
-        <div class="card">
-            <h4>Análisis para perfil {perfil}</h4>
-            <p>Estado del mercado: <b>{"Inestable" if tendencias["Acciones"] == "Bajista" else "Saludable"}</b></p>
-            <ul>
-                <li><b>Acciones:</b> {tendencias["Acciones"]}</li>
-                <li><b>Bitcoin:</b> {tendencias["Bitcoin"]}</li>
-            </ul>
-            <strong>Sugerencia:</strong> Invierte <b>{(pesos['Acciones']*capital):,.0f}€</b> en Renta Variable diversificada.
-        </div>
-        """, unsafe_content_html=True)
+    with col2:
+        st.subheader("💡 Resumen Táctico")
+        st.info(f"Para un perfil **{perfil}**, el sistema recomienda priorizar la seguridad.")
+        for activo, tendencia in status.items():
+            st.write(f"**{activo}:** {'✅' if tendencia == 'Alcista' else '⚠️'} {tendencia}")
 
-    st.write("### 📋 Desglose de Operaciones")
-    tabla = pd.DataFrame({
+    st.divider()
+    st.subheader("📋 Tu Plan de Inversión")
+    df = pd.DataFrame({
         "Activo": pesos.keys(),
         "Porcentaje": [f"{v*100:.1f}%" for v in pesos.values()],
-        "Cantidad a Invertir": [f"{v*capital:,.2f} €" for v in pesos.values()]
+        "Inversión (€)": [f"{v*capital:,.2f} €" for v in pesos.values()]
     })
-    st.table(tabla)
+    st.table(df)
 
 except Exception as e:
-    st.error("Estamos actualizando los datos del mercado. Por favor, recarga en unos segundos.")
+    st.warning("Conectando con los mercados financieros... por favor, actualiza la página en unos segundos.")
+    
