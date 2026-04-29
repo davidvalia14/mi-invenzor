@@ -7,15 +7,10 @@ from datetime import datetime
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Invenzor | Smart Wealth", layout="wide", initial_sidebar_state="expanded")
 
-# --- ESTILO CSS AVANZADO (El secreto de la belleza) ---
+# --- ESTILO CSS ---
 st.markdown("""
     <style>
-    /* Fondo general */
-    .stApp {
-        background-color: #0e1117;
-        color: #ffffff;
-    }
-    /* Tarjetas de métricas */
+    .stApp { background-color: #0e1117; color: #ffffff; }
     .metric-card {
         background: rgba(255, 255, 255, 0.05);
         padding: 20px;
@@ -23,119 +18,77 @@ st.markdown("""
         border: 1px solid rgba(255, 255, 255, 0.1);
         text-align: center;
     }
-    /* Estilo de la tabla */
-    .stTable {
-        background-color: transparent;
-        border-radius: 10px;
-    }
-    /* Esconder menús innecesarios */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
     </style>
     """, unsafe_content_html=True)
 
 # --- CABECERA ---
-col_t1, col_t2 = st.columns([3, 1])
-with col_t1:
-    st.title("🏛️ INVENZOR")
-    st.markdown("<p style='color: #8892b0; font-size: 20px;'>Inteligencia Macro y Gestión Táctica de Activos</p>", unsafe_content_html=True)
-with col_t2:
-    st.write(f"**Fecha:** {datetime.now().strftime('%d/%m/%Y')}")
-
+st.title("🏛️ INVENZOR")
+st.markdown("<p style='color: #8892b0; font-size: 20px;'>Inteligencia Macro y Gestión Táctica</p>", unsafe_content_html=True)
 st.divider()
 
-# --- SIDEBAR PROFESIONAL ---
+# --- SIDEBAR ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2534/2534348.png", width=100)
     st.header("Centro de Control")
     perfil = st.select_slider("Perfil de Riesgo", options=["Conservador", "Moderado", "Arriesgado"], value="Moderado")
-    capital = st.number_input("Capital a gestionar (€)", value=10000, step=1000)
-    st.divider()
-    st.markdown("### 🔍 Estado del Sistema")
-    st.info("Conectado a APIs Globales. Datos en tiempo real.")
+    capital = st.number_input("Capital total (€)", value=10000, step=1000)
+    st.info("Datos en tiempo real via Yahoo Finance")
 
 # --- LÓGICA DE DATOS ---
 @st.cache_data(ttl=3600)
-def fetch_market_intelligence():
+def fetch_market_data():
     assets = {"RV": "URTH", "RF": "AGG", "ORO": "GLD", "BTC": "BTC-USD"}
     data = yf.download(list(assets.values()), period="1y")['Close']
-    
-    intelligence = {}
+    intel = {}
     for name, ticker in assets.items():
         price = data[ticker].iloc[-1]
         sma_200 = data[ticker].rolling(200).mean().iloc[-1]
-        intelligence[name] = {"trend": "ALCISTA" if price > sma_200 else "BAJISTA", "price": price}
-    return intelligence
+        intel[name] = {"trend": "ALCISTA" if price > sma_200 else "BAJISTA", "price": price}
+    return intel
 
 try:
-    intel = fetch_market_intelligence()
-
-    # --- MOTOR DE PESOS DINÁMICO ---
-    base_pesos = {"Acciones": 0.25, "Bonos": 0.25, "Oro": 0.20, "Bitcoin": 0.15, "Efectivo": 0.15}
+    intel = fetch_market_data()
     
-    # Ajustes inteligentes
+    # Motor de pesos
+    pesos = {"Acciones": 0.25, "Bonos": 0.25, "Oro": 0.20, "Bitcoin": 0.15, "Efectivo": 0.15}
     if intel["RV"]["trend"] == "BAJISTA":
-        base_pesos["Acciones"] -= 0.15
-        base_pesos["Efectivo"] += 0.15
+        pesos["Acciones"] -= 0.10
+        pesos["Efectivo"] += 0.10
     
     if perfil == "Arriesgado":
-        base_pesos["Acciones"] += 0.20
-        base_pesos["Bonos"] -= 0.10
-        base_pesos["Bitcoin"] += 0.05
+        pesos["Acciones"] += 0.15; pesos["Bonos"] -= 0.15
     elif perfil == "Conservador":
-        base_pesos["Acciones"] -= 0.15
-        base_pesos["Bonos"] += 0.15
-        base_pesos["Bitcoin"] = 0.02
-        base_pesos["Efectivo"] += 0.13
+        pesos["Acciones"] -= 0.15; pesos["Bonos"] += 0.15
 
-    # Normalizar (para que sume 100%)
-    total = sum(base_pesos.values())
-    pesos = {k: v/total for k, v in base_pesos.items()}
-
-    # --- DASHBOARD VISUAL ---
-    m1, m2, m3, m4 = st.columns(4)
+    # --- DASHBOARD ---
+    m1, m2, m3 = st.columns(3)
     with m1:
-        st.markdown(f"<div class='metric-card'><h4>Sentimiento</h4><h2 style='color: #4cd137;'>POSITIVO</h2></div>", unsafe_content_html=True)
+        st.markdown(f"<div class='metric-card'><h4>Tendencia Acciones</h4><h2>{intel['RV']['trend']}</h2></div>", unsafe_content_html=True)
     with m2:
-        color_rv = "#4cd137" if intel["RV"]["trend"] == "ALCISTA" else "#e84118"
-        st.markdown(f"<div class='metric-card'><h4>Tendencia RV</h4><h2 style='color: {color_rv};'>{intel['RV']['trend']}</h2></div>", unsafe_content_html=True)
+        st.markdown(f"<div class='metric-card'><h4>Tendencia Crypto</h4><h2>{intel['BTC']['trend']}</h2></div>", unsafe_content_html=True)
     with m3:
-        color_btc = "#fbc531" if intel["BTC"]["trend"] == "ALCISTA" else "#e84118"
-        st.markdown(f"<div class='metric-card'><h4>Cripto Momentum</h4><h2 style='color: {color_btc};'>{intel['BTC']['trend']}</h2></div>", unsafe_content_html=True)
-    with m4:
-        st.markdown(f"<div class='metric-card'><h4>Volatilidad</h4><h2 style='color: #00a8ff;'>BAJA</h2></div>", unsafe_content_html=True)
+        st.markdown(f"<div class='metric-card'><h4>Estado</h4><h2>ESTABLE</h2></div>", unsafe_content_html=True)
 
     st.write("##")
-
     c1, c2 = st.columns([1.2, 1])
 
     with c1:
-        st.subheader("📊 Distribución Táctica Sugerida")
-        colors = ['#00a8ff', '#9c88ff', '#fbc531', '#f5f6fa', '#487eb0']
-        fig = go.Figure(data=[go.Pie(labels=list(pesos.keys()), values=list(pesos.values()), 
-                                     hole=.5, marker=dict(colors=colors))])
-        fig.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color="white"),
-            margin=dict(t=0, b=0, l=0, r=0),
-            showlegend=True
-        )
+        fig = go.Figure(data=[go.Pie(labels=list(pesos.keys()), values=list(pesos.values()), hole=.5)])
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font=dict(color="white"), margin=dict(t=0, b=0, l=0, r=0))
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        st.subheader("💡 Análisis del Consultor")
-        st.markdown(f"""
-        Basado en el perfil **{perfil}** y el análisis de datos de hoy:
-        
-        * **Estrategia:** {"Protección de capital" if intel["RV"]["trend"] == "BAJISTA" else "Crecimiento moderado"}.
-        * **Activo Clave:** {"Oro" if intel["RV"]["trend"] == "BAJISTA" else "Acciones Globales"}.
-        * **Nota sobre Bitcoin:** La tendencia es **{intel['BTC']['trend'].lower()}**, lo que sugiere un peso del **{pesos['Bitcoin']*100:.1f}%**.
-        
-        ---
-        #### Acciones Recomendas:
-        1. Mantener el grueso de la cartera en activos con **SMA200 alcista**.
-        2. Rebalancear si alguna posición se desvía más de un 5%.
-        """)
+        st.subheader("💡 Resumen de Estrategia")
+        st.write(f"Para tu perfil **{perfil}**, el sistema recomienda una exposición del {pesos['Acciones']*100:.1f}% en renta variable.")
+        st.write(f"El mercado de Bitcoin se encuentra en fase **{intel['BTC']['trend']}**.")
 
-    st.write("
+    st.write("---")
+    st.subheader("💰 Desglose de Inversión")
+    df_final = pd.DataFrame({
+        "Activo": pesos.keys(),
+        "Peso": [f"{v*100:.1f}%" for v in pesos.values()],
+        "Importe (€)": [f"{v*capital:,.2f} €" for v in pesos.values()]
+    })
+    st.table(df_final)
+
+except Exception as e:
+    st.error("Error al cargar datos. Refresca la página.")
